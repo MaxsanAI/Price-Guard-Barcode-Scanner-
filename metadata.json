@@ -1,0 +1,6 @@
+{
+  "name": "PriceGuard",
+  "description": "An Android App that works as a product barcode scanner using Web technologies inside a Capacitor/WebView wrapper with Open Food Facts integration",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
