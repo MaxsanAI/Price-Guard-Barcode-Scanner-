@@ -1,0 +1,8 @@
+{
+  "appId": "com.priceguard.app",
+  "appName": "PriceGuard",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
