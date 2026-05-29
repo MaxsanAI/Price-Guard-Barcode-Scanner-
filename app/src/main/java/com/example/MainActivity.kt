@@ -60,29 +60,42 @@ class MainActivity : ComponentActivity() {
 fun BarcodeScannerApp(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     
-    // Track camera permission state
-    var hasCameraPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
+    // List of permissions we want our app to request and register with the device
+    val requiredPermissions = remember {
+        arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
         )
     }
 
-    // Permission request launcher
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasCameraPermission = isGranted
+    // Track permission states
+    var permissionStates by remember {
+        mutableStateOf(
+            requiredPermissions.associateWith { permission ->
+                ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+            }
+        )
     }
 
-    // Perform initial permission request if not granted
+    // Permission request launcher for multiple permissions
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        permissionStates = results
+    }
+
+    // Perform initial permission request if anything is missing
     LaunchedEffect(Unit) {
-        if (!hasCameraPermission) {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
+        val needsRequest = requiredPermissions.any {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (needsRequest) {
+            permissionLauncher.launch(requiredPermissions)
         }
     }
+
+    val hasCameraPermission = permissionStates[Manifest.permission.CAMERA] == true
 
     Box(
         modifier = modifier
@@ -96,7 +109,7 @@ fun BarcodeScannerApp(modifier: Modifier = Modifier) {
             // Display elegant Material 3 permission request card fallback
             PermissionFallbackScreen(
                 onRequestPermission = {
-                    permissionLauncher.launch(Manifest.permission.CAMERA)
+                    permissionLauncher.launch(requiredPermissions)
                 }
             )
         }
