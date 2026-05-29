@@ -1,9 +1,10 @@
 plugins {
-  alias(libs.plugins.android.application)
-  alias(libs.plugins.kotlin.compose)
-  alias(libs.plugins.google.devtools.ksp)
-  alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android) // OVO ti je falilo
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp) // Ispravljeno ime (umesto google.devtools...)
+    alias(libs.plugins.roborazzi)
+    alias(libs.plugins.secrets)
 }
 
 android {
