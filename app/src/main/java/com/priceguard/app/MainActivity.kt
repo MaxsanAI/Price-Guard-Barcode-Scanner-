@@ -1,8 +1,11 @@
 package com.priceguard.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.ViewGroup
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
@@ -97,6 +100,17 @@ fun BarcodeScannerApp(modifier: Modifier = Modifier) {
             PermissionFallbackScreen(
                 onRequestPermission = {
                     permissionLauncher.launch(Manifest.permission.CAMERA)
+                },
+                onOpenSettings = {
+                    try {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             )
         }
@@ -233,7 +247,10 @@ fun WebViewErrorScreen(error: String) {
 }
 
 @Composable
-fun PermissionFallbackScreen(onRequestPermission: () -> Unit) {
+fun PermissionFallbackScreen(
+    onRequestPermission: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -302,6 +319,28 @@ fun PermissionFallbackScreen(onRequestPermission: () -> Unit) {
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF020617) // Slate-950 matching
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = onOpenSettings,
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = Color(0xFF10B981)
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            Text(
+                text = "Open App Settings",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF10B981)
                 )
             )
         }

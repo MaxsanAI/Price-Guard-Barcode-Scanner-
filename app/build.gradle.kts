@@ -8,7 +8,7 @@ plugins {
 
 android {
   namespace = "com.priceguard.app"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 35
 
   defaultConfig {
     applicationId = "com.priceguard.app"
