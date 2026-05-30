@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -39,15 +40,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    contentWindowInsets = WindowInsets.navigationBars
-                ) { innerPadding ->
-                    BarcodeScannerApp(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    )
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    BarcodeScannerApp(modifier = Modifier.fillMaxSize().padding(innerPadding))
                 }
             }
         }
@@ -71,23 +65,19 @@ fun BarcodeScannerApp(modifier: Modifier = Modifier) {
         )
     )
 
-    LaunchedEffect(Unit) {
-        permissionsState.launchMultiplePermissionRequest()
-    }
+    LaunchedEffect(Unit) { permissionsState.launchMultiplePermissionRequest() }
 
     Box(modifier = modifier.fillMaxSize().background(Color(0xFF020617))) {
         if (permissionsState.allPermissionsGranted) {
             NativeScannerScreen(viewModel = viewModel)
         } else {
-            PermissionFallbackScreen(
-                onOpenSettings = {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
+            PermissionFallbackScreen {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", context.packageName, null)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-            )
+                context.startActivity(intent)
+            }
         }
     }
 }
@@ -96,39 +86,48 @@ fun BarcodeScannerApp(modifier: Modifier = Modifier) {
 fun NativeScannerScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val uiState by viewModel.uiState.collectAsState()
 
-    AndroidView(
-        modifier = modifier.fillMaxSize(),
-        factory = { ctx ->
-            PreviewView(ctx).apply {
-                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                cameraProviderFuture.addListener({
-                    val cameraProvider = cameraProviderFuture.get()
-                    val preview = Preview.Builder().build().also {
-                        it.setSurfaceProvider(this.surfaceProvider)
-                    }
-                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-                    try {
+    Box(modifier = modifier.fillMaxSize()) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                PreviewView(ctx).apply {
+                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                    cameraProviderFuture.addListener({
+                        val cameraProvider = cameraProviderFuture.get()
+                        val preview = Preview.Builder().build().also { it.setSurfaceProvider(this.surfaceProvider) }
+                        
+                        // INTEGRATING THE ANALYZER
+                        val imageAnalysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build()
+                            .apply {
+                                setAnalyzer(ContextCompat.getMainExecutor(ctx), BarcodeAnalyzer { barcode ->
+                                    viewModel.fetchProduct(barcode)
+                                })
+                            }
+
                         cameraProvider.unbindAll()
-                        cameraProvider.bindToLifecycle(
-                            lifecycleOwner, cameraSelector, preview
-                        )
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }, ContextCompat.getMainExecutor(ctx))
+                        cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis)
+                    }, ContextCompat.getMainExecutor(ctx))
+                }
             }
+        )
+
+        // UI Feedback layer
+        when (val state = uiState) {
+            is ScanUiState.Loading -> Text("Searching...", color = Color.White, modifier = Modifier.align(Alignment.Center))
+            is ScanUiState.Success -> Text("Found: ${state.item.name}", color = Color.Green, modifier = Modifier.align(Alignment.BottomCenter).padding(32.dp))
+            is ScanUiState.Error -> Text("Error: ${state.message}", color = Color.Red, modifier = Modifier.align(Alignment.Center))
+            else -> {}
         }
-    )
+    }
 }
 
 @Composable
 fun PermissionFallbackScreen(onOpenSettings: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Permissions are required to use the scanner.", color = Color.White)
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onOpenSettings) { Text("Open Settings") }
