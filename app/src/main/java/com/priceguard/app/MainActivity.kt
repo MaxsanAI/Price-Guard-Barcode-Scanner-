@@ -9,6 +9,10 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
@@ -19,7 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -51,8 +58,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun BarcodeScannerApp(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    
-    // Proper way to initialize AndroidViewModel in Compose
     val application = context.applicationContext as Application
     val viewModel: AppViewModel = viewModel(
         factory = ViewModelProvider.AndroidViewModelFactory.getInstance(application)
@@ -70,11 +75,7 @@ fun BarcodeScannerApp(modifier: Modifier = Modifier) {
         permissionsState.launchMultiplePermissionRequest()
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF020617))
-    ) {
+    Box(modifier = modifier.fillMaxSize().background(Color(0xFF020617))) {
         if (permissionsState.allPermissionsGranted) {
             NativeScannerScreen(viewModel = viewModel)
         } else {
@@ -93,9 +94,32 @@ fun BarcodeScannerApp(modifier: Modifier = Modifier) {
 
 @Composable
 fun NativeScannerScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = "Scanner Active", color = Color.White)
-    }
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    AndroidView(
+        modifier = modifier.fillMaxSize(),
+        factory = { ctx ->
+            PreviewView(ctx).apply {
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                cameraProviderFuture.addListener({
+                    val cameraProvider = cameraProviderFuture.get()
+                    val preview = Preview.Builder().build().also {
+                        it.setSurfaceProvider(this.surfaceProvider)
+                    }
+                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                    try {
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner, cameraSelector, preview
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }, ContextCompat.getMainExecutor(ctx))
+            }
+        }
+    )
 }
 
 @Composable
@@ -107,8 +131,6 @@ fun PermissionFallbackScreen(onOpenSettings: () -> Unit) {
     ) {
         Text("Permissions are required to use the scanner.", color = Color.White)
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onOpenSettings) {
-            Text("Open Settings")
-        }
+        Button(onClick = onOpenSettings) { Text("Open Settings") }
     }
 }
