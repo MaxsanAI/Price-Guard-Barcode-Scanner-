@@ -11,9 +11,9 @@ android {
     namespace = "com.priceguard.app"
     compileSdk = 35
 
-    // Definišemo JVM toolchain da sprečimo konflikt između KSP-a i ostatka koda
+    // Postavljeno na 21 zbog usklađenosti sa GitHub CI-jem
     kotlin {
-        jvmToolchain(11)
+        jvmToolchain(21)
     }
 
     defaultConfig {
@@ -44,18 +44,17 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
         debug {
-            // Koristi se standardno debug potpisivanje
+            // Standardno debug potpisivanje
         }
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
-    // Dodajemo ovo da eksplicitno kažemo Kotlin kompajleru šta da koristi
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "21"
     }
 
     buildFeatures {
