@@ -3,11 +3,15 @@ package com.priceguard.app
 import java.util.Locale
 
 object Localization {
+
+    // Funkcija koja detektuje jezik korisnika
     fun getLanguageKey(): String {
         val lang = Locale.getDefault().language.lowercase()
+        // Podržavamo srpski i srodne jezike, sve ostalo ide na engleski
         return if (listOf("sr", "hr", "bs", "me", "sl").contains(lang)) "sr" else "en"
     }
 
+    // Mapa svih stringova, organizovana po jeziku
     private val strings = mapOf(
         "en" to mapOf(
             "hdr_desc" to "Scan, track & compare values worldwide",
@@ -93,8 +97,10 @@ object Localization {
         )
     )
 
+    // Glavna funkcija za dohvatanje stringa
     fun get(key: String): String {
         val lang = getLanguageKey()
+        // Vraća traženi string, ili engleski fallback, ili sam ključ ako ničeg nema
         return strings[lang]?.get(key) ?: strings["en"]?.get(key) ?: key
     }
 }

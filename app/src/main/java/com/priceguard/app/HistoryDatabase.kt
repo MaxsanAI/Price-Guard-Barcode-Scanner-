@@ -4,14 +4,17 @@ import android.content.Context
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
-@Entity(tableName = "scan_history")
+@Entity(
+    tableName = "scan_history",
+    indices = [Index(value = ["barcode"])] // Optimizacija: indeks za brže pretraživanje
+)
 data class HistoryItem(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val barcode: String,
     val name: String,
     val brand: String,
     val imageUrl: String,
-    val price: String, // Calculated/estimated local price string
+    val price: String, 
     val nutriscore: String,
     val categories: String,
     val novaGroup: Int = 0,
@@ -50,7 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "priceguard_database"
                 )
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration() // Sigurno za razvoj, za produkciju kasnije dodaj migracije
                 .build()
                 INSTANCE = instance
                 instance

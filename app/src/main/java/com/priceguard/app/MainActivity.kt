@@ -14,18 +14,24 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
@@ -57,6 +63,8 @@ fun BarcodeScannerApp(modifier: Modifier = Modifier) {
         factory = ViewModelProvider.AndroidViewModelFactory.getInstance(application)
     )
 
+    var showScanner by remember { mutableStateOf(false) }
+
     val permissionsState = rememberMultiplePermissionsState(
         permissions = listOf(
             Manifest.permission.CAMERA,
@@ -65,26 +73,61 @@ fun BarcodeScannerApp(modifier: Modifier = Modifier) {
         )
     )
 
-    LaunchedEffect(Unit) { permissionsState.launchMultiplePermissionRequest() }
-
     Box(modifier = modifier.fillMaxSize().background(Color(0xFF020617))) {
-        if (permissionsState.allPermissionsGranted) {
-            NativeScannerScreen(viewModel = viewModel)
-        } else {
-            PermissionFallbackScreen {
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", context.packageName, null)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (showScanner) {
+            if (permissionsState.allPermissionsGranted) {
+                NativeScannerScreen(viewModel = viewModel, onBack = { showScanner = false })
+            } else {
+                LaunchedEffect(Unit) { permissionsState.launchMultiplePermissionRequest() }
+                PermissionFallbackScreen {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
                 }
-                context.startActivity(intent)
             }
+        } else {
+            HomeScreen(onNavigateToScanner = { showScanner = true })
         }
     }
 }
 
 @Composable
-fun NativeScannerScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
+fun HomeScreen(onNavigateToScanner: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("PriceGuard", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(Localization.get("hdr_desc"), color = Color.Gray, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+        
+        Spacer(modifier = Modifier.height(48.dp))
+        
+        Button(onClick = onNavigateToScanner, modifier = Modifier.fillMaxWidth().height(50.dp)) {
+            Text(Localization.get("btn_scan_start"), fontSize = 18.sp)
+        }
+    }
+}
+
+@Composable
+fun ScannerOverlay() {
+    Canvas(modifier = Modifier.fillMaxSize().padding(64.dp)) {
+        val strokeWidth = 8.dp.toPx()
+        val cornerSize = 40.dp.toPx()
+        val path = Path().apply {
+            moveTo(0f, cornerSize); lineTo(0f, 0f); lineTo(cornerSize, 0f)
+            moveTo(size.width - cornerSize, 0f); lineTo(size.width, 0f); lineTo(size.width, cornerSize)
+            moveTo(size.width, size.height - cornerSize); lineTo(size.width, size.height); lineTo(size.width - cornerSize, size.height)
+            moveTo(cornerSize, size.height); lineTo(0f, size.height); lineTo(0f, size.height - cornerSize)
+        }
+        drawPath(path, color = Color.Green, style = Stroke(width = strokeWidth))
+    }
+}
+
+@Composable
+fun NativeScannerScreen(viewModel: AppViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
 
@@ -97,8 +140,6 @@ fun NativeScannerScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) 
                     cameraProviderFuture.addListener({
                         val cameraProvider = cameraProviderFuture.get()
                         val preview = Preview.Builder().build().also { it.setSurfaceProvider(this.surfaceProvider) }
-                        
-                        // INTEGRATING THE ANALYZER
                         val imageAnalysis = ImageAnalysis.Builder()
                             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                             .build()
@@ -107,7 +148,6 @@ fun NativeScannerScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) 
                                     viewModel.fetchProduct(barcode)
                                 })
                             }
-
                         cameraProvider.unbindAll()
                         cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis)
                     }, ContextCompat.getMainExecutor(ctx))
@@ -115,10 +155,22 @@ fun NativeScannerScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) 
             }
         )
 
-        // UI Feedback layer
+        ScannerOverlay()
+
+        IconButton(onClick = onBack, modifier = Modifier.align(Alignment.TopStart).padding(16.dp)) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+        }
+
         when (val state = uiState) {
-            is ScanUiState.Loading -> Text("Searching...", color = Color.White, modifier = Modifier.align(Alignment.Center))
-            is ScanUiState.Success -> Text("Found: ${state.item.name}", color = Color.Green, modifier = Modifier.align(Alignment.BottomCenter).padding(32.dp))
+            is ScanUiState.Loading -> Text("SCANNING MATRIX...", color = Color.Green, modifier = Modifier.align(Alignment.Center).padding(top = 200.dp), fontWeight = FontWeight.Bold)
+            is ScanUiState.Success -> {
+                Card(modifier = Modifier.align(Alignment.BottomCenter).padding(24.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f))) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Product: ${state.item.name}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("Price: ${state.item.price}", color = Color(0xFF166534), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
             is ScanUiState.Error -> Text("Error: ${state.message}", color = Color.Red, modifier = Modifier.align(Alignment.Center))
             else -> {}
         }
