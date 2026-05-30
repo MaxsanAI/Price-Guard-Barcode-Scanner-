@@ -11,6 +11,11 @@ android {
     namespace = "com.priceguard.app"
     compileSdk = 35
 
+    // Definišemo JVM toolchain da sprečimo konflikt između KSP-a i ostatka koda
+    kotlin {
+        jvmToolchain(11)
+    }
+
     defaultConfig {
         applicationId = "com.priceguard.app"
         minSdk = 24
@@ -39,13 +44,18 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
         debug {
-            // Uklonjeno eksplicitno potpisivanje kako bi se koristilo standardno debug potpisivanje
+            // Koristi se standardno debug potpisivanje
         }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    // Dodajemo ovo da eksplicitno kažemo Kotlin kompajleru šta da koristi
+    kotlinOptions {
+        jvmTarget = "11"
     }
 
     buildFeatures {
@@ -69,7 +79,6 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(platform(libs.firebase.bom))
     
-    // DODATA BIBLIOTEKA ZA DOZVOLE
     implementation(libs.accompanist.permissions)
     
     implementation(libs.androidx.activity.compose)
