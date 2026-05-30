@@ -22,13 +22,13 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        # Ako je build folder u root-u, gradlew će ga tamo i napraviti
         run: ./gradlew assembleDebug
+
+      - name: DEBUG - List everything
+        run: ls -R  # Ovo će ispisati apsolutno sve fajlove na serveru
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PriceGuard-Debug-APK
-          # Ovde menjamo putanju jer je build direktno u root-u
-          path: build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          path: .  # Uploadovaće ceo folder da budemo sigurni
