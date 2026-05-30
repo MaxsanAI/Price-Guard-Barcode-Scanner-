@@ -27,14 +27,12 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
-
-      - name: Debug - List all files in the repository
-        run: find . -name "*.apk"
+        # Koristimo :app:assembleDebug da budemo sigurni da gradi pravu aplikaciju
+        run: ./gradlew :app:assembleDebug
 
       - name: Upload Compiled APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PriceGuard-Debug-APK
-          path: .
-          # Ovo će uploadovati sve što nađe, da ne bismo promašili putanju
+          # Ovde sada direktno gađamo folder gde app modul čuva svoj APK
+          path: app/build/outputs/apk/debug/app-debug.apk
